@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XTK Cube World Visualization // Graphic Vision</title>
+  
+  <!-- Canonical XTK WebGL Framework CDN -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --accent: #ff007f;
+      --gold: #ffd700;
+      --bg-glass: rgba(10, 15, 28, 0.82);
+      --border-glass: rgba(0, 240, 255, 0.28);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030508;
+      font-family: var(--font-family);
+      color: var(--text-main);
+    }
+
+    /* 3D WebGL Canvas Container */
+    #container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #container:active {
+      cursor: grabbing;
+    }
+
+    /* Ambient Space Glow */
+    .ambient-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 90vw;
+      height: 90vh;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.07) 0%, rgba(255, 0, 127, 0.04) 50%, transparent 75%);
+      pointer-events: none;
+      z-index: 0;
+      transition: background 1.5s ease;
+    }
+
+    /* Glassmorphism Common Style */
+    .glass {
+      background: var(--bg-glass);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--border-glass);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+    }
+
+    /* Top HUD Navigation Bar */
+    #top-hud {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 10;
+      pointer-events: auto;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 900;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+      animation: logoPulse 4s infinite alternate;
+    }
+
+    @keyframes logoPulse {
+      0% { transform: scale(1) rotate(0deg); box-shadow: 0 0 15px rgba(0, 240, 255, 0.4); }
+      100% { transform: scale(1.06) rotate(6deg); box-shadow: 0 0 25px rgba(255, 0, 127, 0.6); }
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #ffffff, #c7d2fe, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* Step Selector Pills (Matching User Concept Drawing) */
+    .step-navigation {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 5px 8px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .step-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .step-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .step-btn.active {
+      color: #030508;
+      background: linear-gradient(90deg, var(--primary), #a5f3fc);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
+    }
+
+    .step-arrow {
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 12px;
+    }
+
+    /* Stats HUD (Right of Top Bar) */
+    .stats-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .stat-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .stat-value {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .beat-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #334155;
+      box-shadow: 0 0 0 rgba(255, 0, 127, 0);
+      transition: transform 0.08s ease, background 0.08s ease, box-shadow 0.08s ease;
+    }
+
+    .beat-indicator.pulse {
+      background: var(--accent);
+      transform: scale(1.6);
+      box-shadow: 0 0 16px var(--accent);
+    }
+
+    .icon-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    /* Concept Step Description Banner */
+    #step-banner {
+      position: absolute;
+      top: 92px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      z-index: 10;
+      pointer-events: auto;
+      transition: all 0.4s ease;
+    }
+
+    .banner-badge {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #030508;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .banner-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+    }
+
+    .banner-nav-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .banner-nav-btn:hover {
+      background: var(--primary);
+      color: #030508;
+    }
+
+    /* Right Control Drawer */
+    #control-panel {
+      position: absolute;
+      top: 92px;
+      right: 20px;
+      width: 320px;
+      max-height: calc(100vh - 130px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px;
+      z-index: 10;
+      pointer-events: auto;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+    }
+
+    #control-panel.hidden {
+      transform: translateX(360px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #control-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+    #control-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    .panel-section {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .panel-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .section-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--primary);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Color Palette Grid */
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .palette-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .palette-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .palette-card.active {
+      border-color: var(--primary);
+      background: rgba(0, 240, 255, 0.12);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    }
+
+    .palette-swatches {
+      display: flex;
+      height: 10px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .swatch {
+      flex: 1;
+    }
+
+    .palette-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    /* Slider Controls */
+    .slider-row {
+      margin-bottom: 12px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    .slider-val {
+      font-family: monospace;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* Buttons Grid */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .action-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--primary);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .action-btn:active {
+      transform: translateY(1px);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.25));
+      border-color: var(--primary);
+      grid-column: span 2;
+    }
+
+    .action-btn.active {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Auto-Cycle Bar */
+    .cycle-container {
+      margin-top: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 8px 12px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.2);
+      transition: .3s;
+      border-radius: 20px;
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-toggle {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider-toggle:before {
+      transform: translateX(16px);
+    }
+
+    /* Bottom Status & Key Hints */
+    #bottom-bar {
+      position: absolute;
+      bottom: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 10;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    .key-hints {
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .key-tag {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #fff;
+      font-family: monospace;
+      font-weight: 700;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* Loading Overlay */
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #030508;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.8s ease, visibility 0.8s;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(0, 240, 255, 0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+
+    /* Notification Toast */
+    #toast {
+      position: absolute;
+      top: 150px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      padding: 8px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      border-radius: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 20;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Space Backlight -->
+  <div class="ambient-glow" id="ambient-glow"></div>
+
+  <!-- WebGL 3D Container for XTK -->
+  <div id="container"></div>
+
+  <!-- Top Navigation & Stats HUD -->
+  <header id="top-hud" class="glass">
+    <div class="brand">
+      <div class="brand-logo">◈</div>
+      <div>
+        <div class="brand-title">Cube World Vision</div>
+        <div class="brand-subtitle">XTK 3-Step Journey</div>
+      </div>
+    </div>
+
+    <!-- 3-Step Journey Navigation (Matching Sketch) -->
+    <nav class="step-navigation">
+      <button class="step-btn active" id="step-btn-1" onclick="setStep(1)">
+        <span>1.</span> Cube
+      </button>
+      <span class="step-arrow">➔</span>
+      <button class="step-btn" id="step-btn-2" onclick="setStep(2)">
+        <span>2.</span> Zoom In
+      </button>
+      <span class="step-arrow">➔</span>
+      <button class="step-btn" id="step-btn-3" onclick="setStep(3)">
+        <span>3.</span> Inside World
+      </button>
+    </nav>
+
+    <!-- Stats HUD & Controls -->
+    <div class="stats-group">
+      <div class="stat-badge">
+        <div class="stat-value" id="fps-stat">60 FPS</div>
+        <div class="stat-label">Frame Rate</div>
+      </div>
+      <div class="stat-badge">
+        <div class="stat-value" id="cube-count-stat">96</div>
+        <div class="stat-label">Total Cubes</div>
+      </div>
+      <div class="beat-indicator" id="beat-indicator" title="Audio Beat Rhythm"></div>
+      <button class="icon-btn" id="toggle-panel-btn" onclick="togglePanel()" title="Toggle Control Panel [H]">⚙</button>
+    </div>
+  </header>
+
+  <!-- Step Narrative Banner -->
+  <div id="step-banner" class="glass">
+    <button class="banner-nav-btn" onclick="prevStep()">◀ Prev</button>
+    <div class="banner-badge" id="banner-step-badge">Step 1</div>
+    <div class="banner-text" id="banner-step-text">The Monolithic Cube: Solid unified structure seen from outer space.</div>
+    <button class="banner-nav-btn" onclick="nextStep()">Next ▶</button>
+  </div>
+
+  <!-- Interactive Control Panel (Right Drawer) -->
+  <aside id="control-panel" class="glass">
+    
+    <!-- Section 1: Color Themes -->
+    <div class="panel-section">
+      <div class="section-header">
+        <span>Color Themes [C]</span>
+        <span id="current-palette-name" style="color: #fff; font-weight: normal;">Cyber Neon</span>
+      </div>
+      <div class="palette-grid">
+        <div class="palette-card active" onclick="setPalette(0)">
+          <div class="palette-swatches">
+            <div class="swatch" style="background: #00f0ff;"></div>
+            <div class="swatch" style="background: #ff007f;"></div>
+            <div class="swatch" style="background: #7928ca;"></div>
+          </div>
+          <div class="palette-name">Cyber Neon</div>
+        </div>
+        <div class="palette-card" onclick="setPalette(1)">
+          <div class="palette-swatches">
+            <div class="swatch" style="background: #ff5722;"></div>
+            <div class="swatch" style="background: #ff007f;"></div>
+            <div class="swatch" style="background: #ffd600;"></div>
+          </div>
+          <div class="palette-name">Synthwave</div>
+        </div>
+        <div class="palette-card" onclick="setPalette(2)">
+          <div class="palette-swatches">
+            <div class="swatch" style="background: #00ff88;"></div>
+            <div class="swatch" style="background: #00e5ff;"></div>
+            <div class="swatch" style="background: #00b4d8;"></div>
+          </div>
+          <div class="palette-name">Aurora</div>
+        </div>
+        <div class="palette-card" onclick="setPalette(3)">
+          <div class="palette-swatches">
+            <div class="swatch" style="background: #ff1744;"></div>
+            <div class="swatch" style="background: #ff9100;"></div>
+            <div class="swatch" style="background: #ffea00;"></div>
+          </div>
+          <div class="palette-name">Solar Plasma</div>
+        </div>
+        <div class="palette-card" onclick="setPalette(4)">
+          <div class="palette-swatches">
+            <div class="swatch" style="background: #3d5afe;"></div>
+            <div class="swatch" style="background: #7c4dff;"></div>
+            <div class="swatch" style="background: #d500f9;"></div>
+          </div>
+          <div class="palette-name">Cosmic Deep</div>
+        </div>
+        <div class="palette-card" onclick="setPalette(5)">
+          <div class="palette-swatches">
+            <div class="swatch" style="background: red;"></div>
+            <div class="swatch" style="background: lime;"></div>
+            <div class="swatch" style="background: blue;"></div>
+          </div>
+          <div class="palette-name">Prismatic</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Motion Dynamics -->
+    <div class="panel-section">
+      <div class="section-header">Motion & Camera</div>
+      
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Animation Speed</span>
+          <span class="slider-val" id="speed-val">1.0x</span>
+        </div>
+        <input type="range" id="speed-slider" min="0.2" max="3.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Scale & Spacing</span>
+          <span class="slider-val" id="dispersion-val">100%</span>
+        </div>
+        <input type="range" id="dispersion-slider" min="60" max="180" step="5" value="100" oninput="updateDispersion(this.value)">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Rotation Spin</span>
+          <span class="slider-val" id="rotation-val">1.0x</span>
+        </div>
+        <input type="range" id="rotation-slider" min="0.0" max="3.0" step="0.2" value="1.0" oninput="updateRotation(this.value)">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Beat Pulse (BPM) [B]</span>
+          <span class="slider-val" id="bpm-val">128 BPM</span>
+        </div>
+        <input type="range" id="bpm-slider" min="60" max="180" step="2" value="128" oninput="updateBPM(this.value)">
+      </div>
+
+      <div class="cycle-container">
+        <span style="font-size: 11px; font-weight: 600;">Cinematic Auto-Tour</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="tour-toggle" checked onchange="toggleTour(this.checked)">
+          <span class="slider-toggle"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Section 3: Live Action Triggers -->
+    <div class="panel-section">
+      <div class="section-header">Action Triggers</div>
+      <div class="btn-grid">
+        <button class="action-btn primary" onclick="triggerSupernova()">💥 Supernova Shockwave [E]</button>
+        <button class="action-btn" onclick="triggerWarpSpeed()">🚀 Warp Drive [W]</button>
+        <button class="action-btn" id="autocam-btn" onclick="toggleAutoCamera()">🎥 360° Cam Orbit [O]</button>
+        <button class="action-btn" id="pause-btn" onclick="togglePause()">⏸️ Freeze [Space]</button>
+        <button class="action-btn" onclick="randomizeAll()">🎲 Randomize</button>
+        <button class="action-btn" style="grid-column: span 2;" onclick="resetCamera()">🔄 Reset Camera View [R]</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Bottom Helper Bar -->
+  <footer id="bottom-bar" class="glass">
+    <div class="key-hints">
+      <span><span class="key-tag">Drag</span> 3D Trackball</span>
+      <span><span class="key-tag">Scroll</span> Camera Zoom</span>
+      <span><span class="key-tag">Right-Drag</span> Pan</span>
+      <span><span class="key-tag">Double-Click</span> Shockwave</span>
+    </div>
+    <div class="key-hints">
+      <span><span class="key-tag">[1]</span> Cube</span>
+      <span><span class="key-tag">[2]</span> Zoom In</span>
+      <span><span class="key-tag">[3]</span> Inside World</span>
+      <span><span class="key-tag">[T]</span> Tour</span>
+      <span><span class="key-tag">[H]</span> Clean Mode</span>
+    </div>
+  </footer>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="glass">Step 1: The Monolithic Cube</div>
+
+  <!-- Loading Screen -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Rendering 3D Cube World...</div>
+    <div style="font-size: 11px; color: #64748b; margin-top: 10px;">Initializing XTK WebGL Framework</div>
+  </div>
+
+  <script>
+    /**
+     * CUBE WORLD VISION
+     * Implementation of the 3-step sketch:
+     *   Step 1: Cube (Monolithic block)
+     *   Step 2: Zoom in (Edge matrix + flying satellites)
+     *   Step 3: Inside world of cube (Perspective interior room with flying cubes)
+     */
+
+    // Core XTK Engine Variables
+    let renderer = null;
+    let cubes = [];
+    let isInitialized = false;
+
+    // Simulation Timing & Multipliers
+    let isPaused = false;
+    let time = 0;
+    let lastTimestamp = performance.now();
+    let speedMultiplier = 1.0;
+    let dispersionScale = 1.0;
+    let rotationMultiplier = 1.0;
+
+    // Audio Beat Simulation
+    let beatBPM = 128;
+    let beatActive = true;
+    let beatImpulse = 0.0;
+
+    // Camera Auto-Orbit
+    let autoOrbitCamera = false;
+    let camOrbitAngle = 0;
+
+    // 3-Step Journey System
+    let currentStep = 1; // 1: Cube, 2: Zoom in, 3: Inside world
+    let isTourActive = true;
+    let tourTimer = 0;
+    const tourStepDurations = { 1: 8.0, 2: 9.0, 3: 11.0 }; // seconds per step in tour
+
+    // Smooth Camera Targets per Step
+    const cameraStepTargets = {
+      1: { pos: [0, 40, 420], look: [0, 0, 0] },  // Far outer view of the monolith
+      2: { pos: [0, 20, 240], look: [0, 0, 0] },  // Medium zoomed view of structural edges
+      3: { pos: [0, -10, 45],  look: [0, 0, -150] } // Inside the interior world looking into the depth
+    };
+
+    let camCurrentPos = [0, 40, 420];
+    let camTargetPos = [0, 40, 420];
+
+    // Color Palettes
+    let currentPalette = 0;
+    const paletteNames = ["Cyber Neon", "Synthwave", "Aurora Borealis", "Solar Plasma", "Cosmic Deep", "Prismatic"];
+    const palettes = [
+      // 0: Cyber Neon
+      [[0.0, 0.94, 1.0], [1.0, 0.0, 0.5], [0.47, 0.16, 0.79], [0.1, 0.6, 1.0]],
+      // 1: Synthwave
+      [[1.0, 0.34, 0.13], [1.0, 0.0, 0.5], [1.0, 0.84, 0.0], [0.6, 0.0, 0.8]],
+      // 2: Aurora
+      [[0.0, 1.0, 0.53], [0.0, 0.9, 1.0], [0.0, 0.7, 0.85], [0.4, 1.0, 0.8]],
+      // 3: Solar Plasma
+      [[1.0, 0.09, 0.27], [1.0, 0.57, 0.0], [1.0, 0.92, 0.0], [1.0, 0.3, 0.0]],
+      // 4: Cosmic Deep
+      [[0.24, 0.35, 1.0], [0.49, 0.3, 1.0], [0.83, 0.0, 0.98], [0.0, 0.8, 1.0]],
+      // 5: Prismatic Rainbow
+      null
+    ];
+
+    // Total Cube Count: 96 Cubes
+    const TOTAL_CUBES = 96;
+
+    // FPS Measurement
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
+    let toastTimeout = null;
+
+    /**
+     * Window Load: Initialize XTK
+     */
+    window.onload = function() {
+      if (typeof X === 'undefined' || typeof X.renderer3D === 'undefined') {
+        showToast("Loading XTK framework...");
+        setTimeout(window.onload, 300);
+        return;
+      }
+      initXTK();
+    };
+
+    /**
+     * Initialize XTK 3D Renderer and Cube Geometry.
+     */
+    function initXTK() {
+      try {
+        renderer = new X.renderer3D();
+        renderer.container = 'container';
+        renderer.init();
+
+        // Initial camera setup
+        renderer.camera.position = [camCurrentPos[0], camCurrentPos[1], camCurrentPos[2]];
+
+        // Construct 96 Cubes
+        createCubes();
+
+        // Attach frame update callback
+        renderer.onRender = onFrameUpdate;
+
+        // Render scene
+        renderer.render();
+
+        document.getElementById('loading-overlay').classList.add('hidden');
+        isInitialized = true;
+        showToast("Step 1: The Monolithic Cube");
+
+        setupInteractivity();
+
+      } catch (e) {
+        console.error("XTK Init Error:", e);
+        document.querySelector('.loading-text').innerText = "WebGL Error: " + e.message;
+      }
+    }
+
+    /**
+     * Create the collection of cubes.
+     */
+    function createCubes() {
+      cubes = [];
+
+      for (let i = 0; i < TOTAL_CUBES; i++) {
+        const cube = new X.cube();
+
+        let baseSize = 14;
+        let opacity = 0.9;
+
+        // Categorize cube roles
+        // 0-63: Lattice core (4x4x4 in Step 1)
+        // 64-95: Frame anchors and flying satellites
+        if (i < 64) {
+          baseSize = 15;
+          opacity = 0.92;
+        } else if (i < 80) {
+          baseSize = 13;
+          opacity = 0.85;
+        } else {
+          baseSize = 11; // Smaller fast flying satellite cubes
+          opacity = 0.95;
+        }
+
+        cube.center = [0, 0, 0];
+        cube.lengthX = baseSize;
+        cube.lengthY = baseSize;
+        cube.lengthZ = baseSize;
+        cube.opacity = opacity;
+        cube.color = [0.0, 0.94, 1.0];
+
+        // Metadata
+        cube.userData = {
+          id: i,
+          baseSize: baseSize,
+          currentPos: [0, 0, 0],
+          targetPos: [0, 0, 0],
+          vx: 0, vy: 0, vz: 0,
+          // Individual tumble speeds (deg/sec)
+          rotSpeedX: (Math.random() - 0.5) * 60 + 20,
+          rotSpeedY: (Math.random() - 0.5) * 60 + 25,
+          rotSpeedZ: (Math.random() - 0.5) * 60 + 15,
+          // Orbit mechanics for flying cubes
+          orbitSpeed: 0.9 + Math.random() * 1.5,
+          orbitRadius: 120 + Math.random() * 90,
+          orbitAngle: Math.random() * Math.PI * 2,
+          orbitInclination: (Math.random() - 0.5) * Math.PI * 0.9,
+          // Zero-G interior float offset
+          zeroGPhase: Math.random() * Math.PI * 2
+        };
+
+        renderer.add(cube);
+        cubes.push(cube);
+      }
+
+      document.getElementById('cube-count-stat').innerText = TOTAL_CUBES;
+    }
+
+    /**
+     * Compute Target Coordinates based on the 3 Sketch Steps:
+     *   Step 1: Solid Monolithic Cube
+     *   Step 2: Zoom In (Edge Frame + Flying Satellites)
+     *   Step 3: Inside World (Room Perspective: Back wall, Floor, Ceiling, Side walls, Flying center)
+     */
+    function computeStepCoordinates(cube, index, t) {
+      const u = cube.userData;
+      const dScale = dispersionScale;
+
+      let tx = 0, ty = 0, tz = 0;
+
+      // ========================================================
+      // STEP 1: MONOLITHIC CUBE (The unified cube from sketch #1)
+      // ========================================================
+      if (currentStep === 1) {
+        if (index < 64) {
+          // Tightly packed 4x4x4 cube grid forming a solid block
+          const gx = (index % 4) - 1.5;
+          const gy = (Math.floor(index / 4) % 4) - 1.5;
+          const gz = (Math.floor(index / 16) % 4) - 1.5;
+
+          const spacing = 28 * dScale;
+          const pulse = 1 + Math.sin(t * 3) * 0.03; // Subtle breathing
+
+          tx = gx * spacing * pulse;
+          ty = gy * spacing * pulse;
+          tz = gz * spacing * pulse;
+        } else {
+          // 32 Outer crystal nodes closely orbiting the monolithic faces
+          const subIdx = index - 64;
+          const angle = (subIdx / 32) * Math.PI * 2 + t * 0.6;
+          const r = 78 * dScale;
+          const h = Math.sin(angle * 2 + t) * 45 * dScale;
+
+          tx = Math.cos(angle) * r;
+          ty = h;
+          tz = Math.sin(angle) * r;
+        }
+      }
+
+      // ========================================================
+      // STEP 2: ZOOM IN (Modular edge decomposition from sketch #2)
+      // ========================================================
+      else if (currentStep === 2) {
+        // As in sketch #2: Large cube frame with cubes along all 12 perimeter edges!
+        const edgeLength = 110 * dScale;
+
+        if (index < 48) {
+          // 48 Edge Structural Cubes forming the 12 edges (4 cubes per edge)
+          const edgeIndex = Math.floor(index / 4); // 0 to 11 (12 edges)
+          const stepOnEdge = (index % 4) / 3 - 0.5; // -0.5, -0.166, 0.166, 0.5
+          const posOnEdge = stepOnEdge * (edgeLength * 2);
+
+          switch (edgeIndex) {
+            // Front Face Edges (Z = +edgeLength)
+            case 0: tx = posOnEdge; ty = edgeLength; tz = edgeLength; break;   // Top
+            case 1: tx = posOnEdge; ty = -edgeLength; tz = edgeLength; break;  // Bottom
+            case 2: tx = -edgeLength; ty = posOnEdge; tz = edgeLength; break;  // Left
+            case 3: tx = edgeLength; ty = posOnEdge; tz = edgeLength; break;   // Right
+
+            // Back Face Edges (Z = -edgeLength)
+            case 4: tx = posOnEdge; ty = edgeLength; tz = -edgeLength; break;  // Top
+            case 5: tx = posOnEdge; ty = -edgeLength; tz = -edgeLength; break; // Bottom
+            case 6: tx = -edgeLength; ty = posOnEdge; tz = -edgeLength; break; // Left
+            case 7: tx = edgeLength; ty = posOnEdge; tz = -edgeLength; break;  // Right
+
+            // Connecting Depth Edges (Connecting Front to Back)
+            case 8:  tx = -edgeLength; ty = edgeLength; tz = posOnEdge; break;  // Top-Left
+            case 9:  tx = edgeLength; ty = edgeLength; tz = posOnEdge; break;   // Top-Right
+            case 10: tx = -edgeLength; ty = -edgeLength; tz = posOnEdge; break; // Bottom-Left
+            case 11: tx = edgeLength; ty = -edgeLength; tz = posOnEdge; break;  // Bottom-Right
+          }
+
+          // Subtle wave along the edges
+          ty += Math.sin(t * 3 + index * 0.4) * 4;
+
+        } else if (index < 68) {
+          // 20 Cubes orbiting in the face gaps of the frame
+          const fIdx = index - 48;
+          const theta = (fIdx / 20) * Math.PI * 2 + t * 0.8;
+          const r = (edgeLength * 0.75);
+          tx = Math.cos(theta) * r;
+          ty = Math.sin(theta) * r;
+          tz = Math.sin(t * 2 + fIdx) * (edgeLength * 0.5);
+
+        } else {
+          // 28 Flying Satellite Cubes! (Drawn with motion arrows in Step 2 sketch)
+          const flyIdx = index - 68;
+          const speed = u.orbitSpeed * 1.6;
+          const ang = t * speed + u.orbitAngle;
+          const rad = (edgeLength * 1.35 + Math.sin(t * 2 + flyIdx) * 25);
+          const phi = Math.sin(t * 1.2 + flyIdx) * u.orbitInclination;
+
+          tx = rad * Math.cos(ang) * Math.cos(phi);
+          ty = rad * Math.sin(phi) * 1.2;
+          tz = rad * Math.sin(ang) * Math.cos(phi);
+        }
+      }
+
+      // ========================================================
+      // STEP 3: INSIDE WORLD OF CUBE (Perspective room from sketch #3)
+      // ========================================================
+      else if (currentStep === 3) {
+        // Perspective 3D Room as drawn in sketch #3:
+        // Back wall grid, floor array, ceiling array, left/right perspective walls, and floating center cubes!
+        
+        const roomW = 160 * dScale;
+        const roomH = 120 * dScale;
+        const roomDepth = -190 * dScale;
+
+        if (index < 20) {
+          // 1. Back Wall Matrix: 5x4 grid of cubes on the rear wall (Z = roomDepth)
+          const col = (index % 5) - 2;
+          const row = Math.floor(index / 5) - 1.5;
+          tx = col * (roomW * 0.45);
+          ty = row * (roomH * 0.55);
+          tz = roomDepth + Math.sin(t * 2.5 + col + row) * 8;
+
+        } else if (index < 36) {
+          // 2. Floor Plane Grid: Cubes across the bottom floor (Y = -roomH)
+          const fIdx = index - 20;
+          const col = (fIdx % 4) - 1.5;
+          const row = Math.floor(fIdx / 4); // 0 to 3 receding in depth
+          tx = col * (roomW * 0.5);
+          ty = -roomH;
+          tz = roomDepth + row * 60 + Math.sin(t * 3 + col) * 5;
+
+        } else if (index < 52) {
+          // 3. Ceiling Plane Grid: Cubes across the top ceiling (Y = +roomH)
+          const cIdx = index - 36;
+          const col = (cIdx % 4) - 1.5;
+          const row = Math.floor(cIdx / 4);
+          tx = col * (roomW * 0.5);
+          ty = roomH;
+          tz = roomDepth + row * 60 + Math.cos(t * 3 + col) * 5;
+
+        } else if (index < 68) {
+          // 4. Left and Right Perspective Walls
+          const wIdx = index - 52;
+          const isRight = wIdx >= 8;
+          const rowIdx = isRight ? (wIdx - 8) : wIdx;
+          const colZ = Math.floor(rowIdx / 2); // 0 to 3 depth
+          const rowY = (rowIdx % 2) - 0.5;
+
+          tx = isRight ? roomW : -roomW;
+          ty = rowY * (roomH * 0.8);
+          tz = roomDepth + colZ * 60;
+
+        } else {
+          // 5. Zero-Gravity Flying Cubes Swarm (Inside Room Center)
+          // 28 cubes weaving in harmonic 3D Lissajous orbits right in front of the camera!
+          const sIdx = index - 68;
+          const lissA = 2, lissB = 3, lissC = 1;
+          const speed = (u.orbitSpeed * 1.2);
+          const p = t * speed + u.zeroGPhase;
+
+          tx = Math.sin(p * lissA) * (roomW * 0.55);
+          ty = Math.cos(p * lissB) * (roomH * 0.5);
+          tz = (roomDepth * 0.5) + Math.sin(p * lissC) * 80;
+        }
+      }
+
+      return [tx, ty, tz];
+    }
+
+    /**
+     * Compute dynamic color RGB for each cube.
+     */
+    function computeCubeColor(cube, index, t) {
+      if (currentPalette === 5) {
+        // Prismatic Rainbow Spectrum
+        const p = cube.userData.currentPos;
+        const dist = Math.sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2]) * 0.002;
+        const hue = (t * 0.2 + (index / TOTAL_CUBES) + dist) % 1.0;
+        return hslToRgb(hue, 0.95, 0.55 + beatImpulse * 0.25);
+      }
+
+      const pal = palettes[currentPalette];
+      const pLen = pal.length;
+      
+      const wave = (t * 1.2 + index * 0.12 + beatImpulse * 0.4) % pLen;
+      const c1Index = Math.floor(wave) % pLen;
+      const c2Index = (c1Index + 1) % pLen;
+      const frac = wave - Math.floor(wave);
+
+      const c1 = pal[c1Index];
+      const c2 = pal[c2Index];
+
+      let r = c1[0] + (c2[0] - c1[0]) * frac;
+      let g = c1[1] + (c2[1] - c1[1]) * frac;
+      let b = c1[2] + (c2[2] - c1[2]) * frac;
+
+      if (beatImpulse > 0.05) {
+        r = Math.min(1.0, r + beatImpulse * 0.35);
+        g = Math.min(1.0, g + beatImpulse * 0.35);
+        b = Math.min(1.0, b + beatImpulse * 0.35);
+      }
+
+      return [r, g, b];
+    }
+
+    /**
+     * Helper: HSL to RGB [0..1]
+     */
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hueToRgb(p, q, h + 1/3);
+        g = hueToRgb(p, q, h);
+        b = hueToRgb(p, q, h - 1/3);
+      }
+      return [r, g, b];
+    }
+
+    function hueToRgb(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    }
+
+    /**
+     * Main WebGL Animation Frame Loop (Called by XTK engine on every render).
+     */
+    function onFrameUpdate() {
+      const now = performance.now();
+      const rawDt = Math.min((now - lastTimestamp) / 1000, 0.1);
+      lastTimestamp = now;
+
+      // FPS tracking
+      frameCount++;
+      if (now - lastFpsUpdate >= 1000) {
+        document.getElementById('fps-stat').innerText = frameCount + " FPS";
+        frameCount = 0;
+        lastFpsUpdate = now;
+      }
+
+      if (isPaused) return;
+
+      const dt = rawDt * speedMultiplier;
+      time += dt;
+
+      // Audio Beat Simulator
+      if (beatActive) {
+        const beatInterval = 60 / beatBPM;
+        const beatPhase = (time % beatInterval) / beatInterval;
+        beatImpulse = Math.exp(-beatPhase * 6.5);
+
+        const beatIndicator = document.getElementById('beat-indicator');
+        if (beatImpulse > 0.4) {
+          beatIndicator.classList.add('pulse');
+        } else {
+          beatIndicator.classList.remove('pulse');
+        }
+      } else {
+        beatImpulse = 0;
+      }
+
+      // Cinematic Tour Journey Progression
+      if (isTourActive) {
+        tourTimer += dt;
+        const currentDuration = tourStepDurations[currentStep];
+        if (tourTimer >= currentDuration) {
+          tourTimer = 0;
+          let next = currentStep + 1;
+          if (next > 3) next = 1;
+          setStep(next, false);
+        }
+      }
+
+      // Smooth Camera Flight Transition to Target Position
+      if (renderer.camera) {
+        const camLerp = 1.0 - Math.exp(-3.2 * dt);
+        camCurrentPos[0] += (camTargetPos[0] - camCurrentPos[0]) * camLerp;
+        camCurrentPos[1] += (camTargetPos[1] - camCurrentPos[1]) * camLerp;
+        camCurrentPos[2] += (camTargetPos[2] - camCurrentPos[2]) * camLerp;
+
+        if (autoOrbitCamera) {
+          camOrbitAngle += dt * 0.3;
+          const orbitR = camCurrentPos[2];
+          renderer.camera.position = [
+            Math.sin(camOrbitAngle) * orbitR,
+            camCurrentPos[1] + Math.sin(time * 0.5) * 30,
+            Math.cos(camOrbitAngle) * orbitR
+          ];
+        } else {
+          renderer.camera.position = [camCurrentPos[0], camCurrentPos[1], camCurrentPos[2]];
+        }
+      }
+
+      // Morphing Lerp Speed
+      const lerpSpeed = 1.0 - Math.exp(-4.2 * dt);
+      const damping = Math.exp(-3.5 * dt);
+
+      // Update Every Cube
+      for (let i = 0; i < TOTAL_CUBES; i++) {
+        const cube = cubes[i];
+        const u = cube.userData;
+
+        // 1. Calculate Target Position
+        const target = computeStepCoordinates(cube, i, time);
+        u.targetPos = target;
+
+        // 2. Physics Impulse Velocities & Damping
+        u.vx *= damping;
+        u.vy *= damping;
+        u.vz *= damping;
+
+        // 3. Smooth Lerp Position + Impulse
+        u.currentPos[0] += (target[0] - u.currentPos[0]) * lerpSpeed + u.vx * dt;
+        u.currentPos[1] += (target[1] - u.currentPos[1]) * lerpSpeed + u.vy * dt;
+        u.currentPos[2] += (target[2] - u.currentPos[2]) * lerpSpeed + u.vz * dt;
+
+        // Beat pulse offset
+        const beatOffset = beatImpulse * 8;
+        const cx = u.currentPos[0] * (1 + beatOffset * 0.002);
+        const cy = u.currentPos[1] * (1 + beatOffset * 0.002);
+        const cz = u.currentPos[2] * (1 + beatOffset * 0.002);
+
+        // 4. Update Cube World Translation Matrix directly
+        const mat = cube.transform.matrix;
+        mat[12] = cx;
+        mat[13] = cy;
+        mat[14] = cz;
+
+        // 5. Apply Local Rotations
+        // In Step 1: All cubes tumble together in harmony
+        // In Step 2 & 3: Flying cubes tumble faster
+        let rotMultiplier = rotationMultiplier;
+        if (currentStep === 1) rotMultiplier *= 0.6;
+        if (currentStep === 3 && i >= 68) rotMultiplier *= 1.8;
+
+        const rx = u.rotSpeedX * rotMultiplier * dt;
+        const ry = u.rotSpeedY * rotMultiplier * dt;
+        const rz = u.rotSpeedZ * rotMultiplier * dt;
+
+        cube.transform.rotateX(rx);
+        cube.transform.rotateY(ry);
+        cube.transform.rotateZ(rz);
+
+        // 6. Update Color Wave
+        const col = computeCubeColor(cube, i, time);
+        cube.color = col;
+      }
+    }
+
+    /**
+     * Switch between the 3 Steps:
+     * 1: Cube
+     * 2: Zoom In
+     * 3: Inside World
+     */
+    function setStep(stepNumber, manual = true) {
+      currentStep = stepNumber;
+      if (manual) {
+        tourTimer = 0; // reset tour countdown
+      }
+
+      // Update Camera Target
+      const targetCam = cameraStepTargets[currentStep];
+      camTargetPos[0] = targetCam.pos[0];
+      camTargetPos[1] = targetCam.pos[1];
+      camTargetPos[2] = targetCam.pos[2];
+
+      // Update Navigation Buttons UI
+      for (let s = 1; s <= 3; s++) {
+        const btn = document.getElementById(`step-btn-${s}`);
+        if (s === stepNumber) btn.classList.add('active');
+        else btn.classList.remove('active');
+      }
+
+      // Update Narrative Banner
+      const badge = document.getElementById('banner-step-badge');
+      const text = document.getElementById('banner-step-text');
+
+      if (stepNumber === 1) {
+        badge.innerText = "Step 1";
+        text.innerText = "The Monolithic Cube: Solid unified structure seen from outer space.";
+        showToast("✦ Step 1: The Monolithic Cube");
+      } else if (stepNumber === 2) {
+        badge.innerText = "Step 2";
+        text.innerText = "Zoom In: The cube decomposes into its structural edge matrix with flying satellites.";
+        showToast("✦ Step 2: Zoom In // Modular Frame");
+      } else {
+        badge.innerText = "Step 3";
+        text.innerText = "Inside World of Cube: Interior 3D perspective room with zero-gravity flying cubes!";
+        showToast("✦ Step 3: Inside World of Cube");
+      }
+    }
+
+    function nextStep() {
+      let n = currentStep + 1;
+      if (n > 3) n = 1;
+      setStep(n);
+    }
+
+    function prevStep() {
+      let p = currentStep - 1;
+      if (p < 1) p = 3;
+      setStep(p);
+    }
+
+    /**
+     * Palette Switcher
+     */
+    function setPalette(paletteIndex) {
+      currentPalette = paletteIndex;
+      document.getElementById('current-palette-name').innerText = paletteNames[paletteIndex];
+
+      const cards = document.querySelectorAll('.palette-card');
+      cards.forEach((c, idx) => {
+        if (idx === paletteIndex) c.classList.add('active');
+        else c.classList.remove('active');
+      });
+
+      const glow = document.getElementById('ambient-glow');
+      if (paletteIndex === 0) glow.style.background = "radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(255, 0, 127, 0.05) 50%, transparent 75%)";
+      else if (paletteIndex === 1) glow.style.background = "radial-gradient(circle, rgba(255, 87, 34, 0.08) 0%, rgba(255, 0, 127, 0.06) 50%, transparent 75%)";
+      else if (paletteIndex === 2) glow.style.background = "radial-gradient(circle, rgba(0, 255, 136, 0.08) 0%, rgba(0, 229, 255, 0.05) 50%, transparent 75%)";
+      else if (paletteIndex === 3) glow.style.background = "radial-gradient(circle, rgba(255, 23, 68, 0.09) 0%, rgba(255, 145, 0, 0.06) 50%, transparent 75%)";
+      else if (paletteIndex === 4) glow.style.background = "radial-gradient(circle, rgba(61, 90, 254, 0.08) 0%, rgba(213, 0, 249, 0.06) 50%, transparent 75%)";
+      else glow.style.background = "radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(0, 240, 255, 0.04) 50%, transparent 75%)";
+
+      showToast(`Palette: ${paletteNames[paletteIndex]}`);
+    }
+
+    /**
+     * Supernova Explosive Shockwave
+     */
+    function triggerSupernova() {
+      const blastPower = 450 * dispersionScale;
+
+      for (let i = 0; i < cubes.length; i++) {
+        const cube = cubes[i];
+        const u = cube.userData;
+
+        let rx = u.currentPos[0] + (Math.random() - 0.5) * 50;
+        let ry = u.currentPos[1] + (Math.random() - 0.5) * 50;
+        let rz = u.currentPos[2] + (Math.random() - 0.5) * 50;
+
+        const mag = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1.0;
+        const force = blastPower * (0.8 + Math.random() * 0.8);
+
+        u.vx += (rx / mag) * force;
+        u.vy += (ry / mag) * force;
+        u.vz += (rz / mag) * force;
+
+        u.rotSpeedX += (Math.random() - 0.5) * 280;
+        u.rotSpeedY += (Math.random() - 0.5) * 280;
+        u.rotSpeedZ += (Math.random() - 0.5) * 280;
+      }
+
+      showToast("💥 SUPERNOVA SHOCKWAVE FIRED!");
+    }
+
+    /**
+     * Warp Drive Boost
+     */
+    function triggerWarpSpeed() {
+      const origSpeed = speedMultiplier;
+      speedMultiplier = 3.5;
+      document.getElementById('speed-slider').value = 3.5;
+      document.getElementById('speed-val').innerText = "3.5x";
+      showToast("🚀 HYPERSPACE WARP ENGAGED!");
+
+      setTimeout(() => {
+        speedMultiplier = origSpeed;
+        document.getElementById('speed-slider').value = origSpeed;
+        document.getElementById('speed-val').innerText = origSpeed.toFixed(1) + "x";
+      }, 2500);
+    }
+
+    /**
+     * Camera Controls
+     */
+    function toggleAutoCamera() {
+      autoOrbitCamera = !autoOrbitCamera;
+      const btn = document.getElementById('autocam-btn');
+      if (autoOrbitCamera) {
+        btn.classList.add('active');
+        showToast("🎥 Auto-Orbit Camera ON");
+      } else {
+        btn.classList.remove('active');
+        showToast("🎥 Manual Camera Control");
+      }
+    }
+
+    function resetCamera() {
+      const targetCam = cameraStepTargets[currentStep];
+      camTargetPos[0] = targetCam.pos[0];
+      camTargetPos[1] = targetCam.pos[1];
+      camTargetPos[2] = targetCam.pos[2];
+      camCurrentPos = [...camTargetPos];
+      autoOrbitCamera = false;
+      document.getElementById('autocam-btn').classList.remove('active');
+      showToast("🔄 Camera Reset");
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      const btn = document.getElementById('pause-btn');
+      if (isPaused) {
+        btn.innerHTML = "▶️ Resume";
+        btn.classList.add('active');
+        showToast("⏸️ Simulation Paused");
+      } else {
+        btn.innerHTML = "⏸️ Freeze";
+        btn.classList.remove('active');
+        lastTimestamp = performance.now();
+        showToast("▶️ Simulation Resumed");
+      }
+    }
+
+    function randomizeAll() {
+      const newStep = Math.floor(Math.random() * 3) + 1;
+      const newPal = Math.floor(Math.random() * palettes.length);
+      const newSpeed = 0.6 + Math.random() * 1.6;
+      const newDisp = 80 + Math.random() * 60;
+
+      setStep(newStep);
+      setPalette(newPal);
+      updateSpeed(newSpeed.toFixed(1));
+      updateDispersion(Math.round(newDisp));
+
+      document.getElementById('speed-slider').value = newSpeed;
+      document.getElementById('dispersion-slider').value = newDisp;
+
+      triggerSupernova();
+      showToast("🎲 Parameters Randomized!");
+    }
+
+    function toggleTour(checked) {
+      isTourActive = checked;
+      showToast(checked ? "✦ Cinematic Tour: ON" : "✦ Cinematic Tour: OFF");
+    }
+
+    function updateSpeed(val) {
+      speedMultiplier = parseFloat(val);
+      document.getElementById('speed-val').innerText = speedMultiplier.toFixed(1) + "x";
+    }
+
+    function updateDispersion(val) {
+      dispersionScale = parseFloat(val) / 100.0;
+      document.getElementById('dispersion-val').innerText = val + "%";
+    }
+
+    function updateRotation(val) {
+      rotationMultiplier = parseFloat(val);
+      document.getElementById('rotation-val').innerText = rotationMultiplier.toFixed(1) + "x";
+    }
+
+    function updateBPM(val) {
+      beatBPM = parseInt(val);
+      document.getElementById('bpm-val').innerText = val + " BPM";
+    }
+
+    function togglePanel() {
+      const panel = document.getElementById('control-panel');
+      panel.classList.toggle('hidden');
+    }
+
+    let isCleanMode = false;
+    function toggleCleanMode() {
+      isCleanMode = !isCleanMode;
+      const hud = document.getElementById('top-hud');
+      const banner = document.getElementById('step-banner');
+      const panel = document.getElementById('control-panel');
+      const bottom = document.getElementById('bottom-bar');
+
+      if (isCleanMode) {
+        hud.style.opacity = '0';
+        hud.style.pointerEvents = 'none';
+        banner.style.opacity = '0';
+        banner.style.pointerEvents = 'none';
+        panel.classList.add('hidden');
+        bottom.style.opacity = '0';
+        showToast("Clean Mode [Press H to return]");
+      } else {
+        hud.style.opacity = '1';
+        hud.style.pointerEvents = 'auto';
+        banner.style.opacity = '1';
+        banner.style.pointerEvents = 'auto';
+        panel.classList.remove('hidden');
+        bottom.style.opacity = '1';
+        showToast("UI Restored");
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    /**
+     * Keyboard and Mouse Interaction
+     */
+    function setupInteractivity() {
+      window.addEventListener('keydown', function(e) {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          togglePause();
+        } else if (e.code === 'Digit1' || e.code === 'Numpad1') {
+          setStep(1);
+        } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
+          setStep(2);
+        } else if (e.code === 'Digit3' || e.code === 'Numpad3') {
+          setStep(3);
+        } else if (e.code === 'KeyE') {
+          triggerSupernova();
+        } else if (e.code === 'KeyC') {
+          setPalette((currentPalette + 1) % palettes.length);
+        } else if (e.code === 'KeyT') {
+          const tgl = document.getElementById('tour-toggle');
+          tgl.checked = !tgl.checked;
+          toggleTour(tgl.checked);
+        } else if (e.code === 'KeyB') {
+          beatActive = !beatActive;
+          showToast(beatActive ? "Beat Pulse: ON" : "Beat Pulse: OFF");
+        } else if (e.code === 'KeyO') {
+          toggleAutoCamera();
+        } else if (e.code === 'KeyW') {
+          triggerWarpSpeed();
+        } else if (e.code === 'KeyR') {
+          resetCamera();
+        } else if (e.code === 'KeyH') {
+          toggleCleanMode();
+        }
+      });
+
+      const container = document.getElementById('container');
+      container.addEventListener('dblclick', function(e) {
+        triggerSupernova();
+      });
+
+      // Mouse Wheel Zoom drives the Step Journey
+      window.addEventListener('wheel', function(e) {
+        if (isTourActive) return; // let user take manual control
+        if (e.deltaY < 0) {
+          // Zoom in
+          if (currentStep < 3) setStep(currentStep + 1);
+        } else if (e.deltaY > 0) {
+          // Zoom out
+          if (currentStep > 1) setStep(currentStep - 1);
+        }
+      }, { passive: true });
+
+      window.addEventListener('resize', function() {
+        if (renderer && renderer.onResize_) {
+          renderer.onResize_();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
